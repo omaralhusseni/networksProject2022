@@ -87,7 +87,7 @@ const insertToken = (username, token) => {
     })
 }
 
-const deleteToken = (token) => {
+const deleteToken = (username) => {
   MongoClient.connect(
     connectionString,
     {
@@ -101,7 +101,7 @@ const deleteToken = (token) => {
       const db = client.db('networks')
       const session = db.collection('sessions')
       session.deleteMany({
-        token
+        username
       }, (err, result) => {
         if (err) {
           return console.log(err)
