@@ -69,6 +69,7 @@
             </form>
         </div>
     </nav>
+    <h1 id="message"></h1>
     <div class="container1">
         <img id="image" src="/annapurna.png" width="193" height="300">
     </div>
@@ -85,3 +86,24 @@
     </div>
 </body>
 </html>
+
+<script>
+    const wanttogo = document.getElementById('wanttogo');
+    wanttogo.addEventListener('click', () => {
+        fetch('/wanttogo', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                destination: 'annapurna',
+            })
+        }).then((res) => {
+            return res.json();
+        }).then((data) => {
+            console.log(data)
+            message.innerHTML = data.message;
+        })
+    })
+
+</script>
