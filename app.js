@@ -17,6 +17,8 @@ app.use(session({
   saveUninitialized: true
 }));
 
+const PORT = process.env.PORT || 3030;
+
 const MongoClient = require('mongodb').MongoClient
 
 const connectionString = 'mongodb://localhost:27017'
@@ -487,4 +489,6 @@ app.get('/wanttogo', (req, res) => {
 })
 
 
-app.listen(3000)
+app.listen(PORT, () => {
+  console.log(`server started on port ${PORT}`);
+});
