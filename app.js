@@ -35,8 +35,6 @@ app.get('/', function (req, res) {
   res.render('login', { message: '' })
 });
 
-
-
 const autoGenToken = () => {
   const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
   return token;
@@ -53,11 +51,14 @@ const insertTokenToDB = (username, token) => {
       if (err) {
         return console.log(err)
       }
-      const db = client.db('networks')
-      const session = db.collection('sessions')
-      session.insertOne({
+      const db = client.db('myDB')
+      const session = db.collection('myCollection')
+      session.updateOne({
         username
-        , token
+      }, {
+        $set: {
+          token
+        }
       }, (err, result) => {
         if (err) {
           return console.log(err)
@@ -77,15 +78,20 @@ const removeTokenFromDB = (token) => {
       if (err) {
         return console.log(err)
       }
-      const db = client.db('networks')
-      const session = db.collection('sessions')
-      session.deleteOne({
+      const db = client.db('myDB')
+      const session = db.collection('myCollection')
+      session.updateOne({
         token
+      }, {
+        $set: {
+          token: ''
+        }
       }, (err, result) => {
         if (err) {
           return console.log(err)
         }
-      })
+      }
+      )
     })
 }
 
@@ -100,8 +106,8 @@ const checkTokenInDB = (token, callback) => {
       if (err) {
         return console.log(err)
       }
-      const db = client.db('networks')
-      const session = db.collection('sessions')
+      const db = client.db('myDB')
+      const session = db.collection('myCollection')
       session.findOne({
         token
       }, (err, result) => {
@@ -109,7 +115,7 @@ const checkTokenInDB = (token, callback) => {
           return console.log(err)
         }
         if (result) {
-          callback(true)
+          callback(result)
         } else {
           callback(false)
         }
@@ -151,9 +157,10 @@ const checkUserAlreadyHasToken = (username, callback) => {
       if (err) {
         return console.log(err)
       }
-      const db = client.db('networks')
-      const session = db.collection('sessions')
-      session.findOne({
+
+      const db = client.db('myDB')
+      const users = db.collection('myCollection')
+      users.findOne({
         username
       }, (err, result) => {
         if (err) {
@@ -164,7 +171,8 @@ const checkUserAlreadyHasToken = (username, callback) => {
         } else {
           callback(false)
         }
-      })
+      }
+      )
     })
 }
 
@@ -193,8 +201,8 @@ app.post('/', function (req, res) {
       if (err) {
         return console.log(err)
       }
-      const db = client.db('networks')
-      const users = db.collection('users')
+      const db = client.db('myDB')
+      const users = db.collection('myCollection')
 
       users.findOne({
         username
@@ -204,19 +212,11 @@ app.post('/', function (req, res) {
           return console.log(err)
         }
         if (result) {
-          checkUserAlreadyHasToken(username, (result) => {
-            if (result) {
-              req.session.token = result.token
-              req.session.username = username
-              res.render('home', { message: 'User already logged in' })
-            } else {
-              const token = autoGenToken()
-              insertTokenToDB(username, token)
-              req.session.token = token
-              req.session.username = username
-              res.render('home', { message: 'User logged in' })
-            }
-          })
+          const token = autoGenToken()
+          insertTokenToDB(username, token)
+          req.session.token = token
+          req.session.username = username
+          res.render('home', { message: 'Welcome ' + username + '!' })
         } else {
           res.render('login', { message: 'Incorrect username or password' })
         }
@@ -240,8 +240,8 @@ app.post('/register', function (req, res) {
       if (err) {
         return console.log(err)
       }
-      const db = client.db('networks')
-      const users = db.collection('users')
+      const db = client.db('myDB')
+      const users = db.collection('myCollection')
       const username = req.body.username
       const password = req.body.password
 
@@ -262,18 +262,11 @@ app.post('/register', function (req, res) {
           users.insertOne({
             username
             , password
+            , token: ''
+            , wanttogo: []
           }, (err, result) => {
             if (err) {
               return console.log(err)
-            }
-            const token = autoGenToken();
-            req.session.token = token;
-            if (result.token) {
-              checkToken(result.token, (result) => {
-                if (!result) {
-                  insertToken(username, token)
-                }
-              })
             }
             res.render('login', { message: 'Registration successful' })
           }
@@ -308,10 +301,6 @@ app.get('/logout', (req, res) => {
 
 app.post('/wanttogo', (req, res) => {
   const dist = req.body.destination
-  const token = req.session.token
-  const username = req.session.username
-
-  console.log(username, token, dist)
 
   isLoggedIn(req, res, (result) => {
     MongoClient.connect(
@@ -321,32 +310,41 @@ app.post('/wanttogo', (req, res) => {
         useUnifiedTopology: true
       },
       (err, client) => {
-
         if (err) {
           return console.log(err)
         }
-        const db = client.db('networks')
-        const destinations = db.collection('wanttogo')
+        const db = client.db('myDB')
+        const users = db.collection('myCollection')
 
-        destinations.findOne({
-          username
-          , dist
+        users.findOne({
+          username: result.username
         }, (err, result) => {
           if (err) {
             return console.log(err)
           }
           if (result) {
-            res.send({ message: 'already exists' })
-          } else {
-            destinations.insertOne({
-              username
-              , dist
-            }, (err, result) => {
-              if (err) {
-                return console.log(err)
+            const destinations = result.wanttogo
+
+            if (destinations.includes(dist)) {
+              res.send({ message: 'Destination is already in your want to go list' })
+              return
+            }
+
+            destinations.push(dist)
+            users.update
+              ({
+                username: result.username
+              }, {
+                $set: {
+                  wanttogo: destinations
+                }
+              }, (err, result) => {
+                if (err) {
+                  return console.log(err)
+                }
+                res.send({ message: 'Destination added to want to go list' })
               }
-              res.send({ message: 'success' })
-            })
+              )
           }
         })
       })
@@ -354,33 +352,11 @@ app.post('/wanttogo', (req, res) => {
 })
 
 app.get('/wanttogo', (req, res) => {
-  const token = req.session.token
   const username = req.session.username
 
   isLoggedIn(req, res, (result) => {
-    MongoClient.connect(
-      connectionString,
-      {
-        useNewUrlParser: true,
-        useUnifiedTopology: true
-      },
-      (err, client) => {
-
-        if (err) {
-          return console.log(err)
-        }
-        const db = client.db('networks')
-        const destinations = db.collection('wanttogo')
-
-        destinations.find({
-          username
-        }).toArray((err, result) => {
-          if (err) {
-            return console.log(err)
-          }
-          res.render('wanttogo', { distinations: result })
-        })
-      })
+    res.render('wanttogo', { distinations: result.wanttogo })
+    console.log(result.wanttogo)
   })
 })
 
