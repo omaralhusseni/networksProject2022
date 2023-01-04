@@ -31,9 +31,6 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.get('/', function (req, res) {
-  res.render('login', { message: '' })
-});
 
 const autoGenToken = () => {
   const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
@@ -176,6 +173,9 @@ const checkUserAlreadyHasToken = (username, callback) => {
     })
 }
 
+app.get('/', function (req, res) {
+  res.render('login', { message: '' })
+});
 
 app.post('/', function (req, res) {
   const username = req.body.username
@@ -352,11 +352,8 @@ app.post('/wanttogo', (req, res) => {
 })
 
 app.get('/wanttogo', (req, res) => {
-  const username = req.session.username
-
   isLoggedIn(req, res, (result) => {
     res.render('wanttogo', { distinations: result.wanttogo })
-    console.log(result.wanttogo)
   })
 })
 

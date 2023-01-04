@@ -101,6 +101,8 @@
 
 <script>
     const wanttogo = document.getElementById('wanttogo');
+    const message = document.getElementById('message');
+
     wanttogo.addEventListener('click', () => {
         fetch('/wanttogo', {
             method: 'POST',
